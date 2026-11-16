@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'auth' => [
+        'password_registration_enabled' => env('PASSWORD_REGISTRATION_ENABLED', false),
+    ],
+
     'stripe' => [
         'secret' => env('STRIPE_SECRET_KEY', ''),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET', ''),
@@ -73,6 +77,8 @@ return [
         'key' => env('PIXELFORGE_API_KEY', ''),
         'webhook_secret' => env('PIXELFORGE_WEBHOOK_SECRET', ''),
         'demo_enabled' => env('DEMO_ENABLED', false),
+        'reference_hosts' => array_filter(array_map('trim', explode(',', env('PIXELFORGE_REFERENCE_HOSTS', 'example.com,images.unsplash.com,upload.wikimedia.org,i.imgur.com')))),
+        'daily_budget' => env('PIXELFORGE_DAILY_BUDGET_USD', '5.00'),
     ],
 
 ];

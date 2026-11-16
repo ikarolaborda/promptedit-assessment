@@ -33,7 +33,21 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
         foreach (['login' => 8, 'register' => 4, 'demo' => 10, 'quote' => 60, 'generate' => 6, 'report' => 10, 'credits' => 5, 'oauth' => 15] as $name => $maximum) {
-            RateLimiter::for($name, fn (Request $request) => Limit::perMinute($maximum)->by($name.':'.($request->user()?->id ?? $request->ip())));
+            RateLimiter::for($name, function (Request $request) use ($name, $maximum): array {
+                $limits = [Limit::perMinute($maximum)->by($name.':actor:'.($request->user()?->id ?? $request->ip()))];
+                if ($name === 'login' && is_string($request->input('email'))) {
+                    $email = mb_strtolower(trim($request->input('email')));
+                    $limits[] = Limit::perHour(20)->by('login:email:'.hash('sha256', $email));
+                }
+                if (in_array($name, ['register', 'generate', 'quote'], true)) {
+                    $limits[] = Limit::perMinute(['register' => 20, 'generate' => 30, 'quote' => 300][$name])->by($name.':global:minute');
+                }
+                if (in_array($name, ['register', 'generate'], true)) {
+                    $limits[] = Limit::perDay($name === 'register' ? 100 : 150)->by($name.':global:day');
+                }
+
+                return $limits;
+            });
         }
     }
 }

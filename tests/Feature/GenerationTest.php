@@ -6,7 +6,9 @@ use App\Jobs\PollGeneration;
 use App\Jobs\SubmitGeneration;
 use App\Models\Generation;
 use App\Models\User;
+use App\Services\Money;
 use App\Services\Pixelforge;
+use App\Services\Quote;
 use App\Services\SettleGeneration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
@@ -32,7 +34,8 @@ class GenerationTest extends TestCase
         Cache::flush();
         Queue::fake();
         $this->pricing = json_decode(file_get_contents(__DIR__.'/../Fixtures/pricing.json'), true);
-        config(['services.pixelforge.webhook_secret' => 'whsec_test_signing_secret', 'services.pixelforge.key' => 'test-key']);
+        config(['services.pixelforge.webhook_secret' => 'whsec_test_signing_secret', 'services.pixelforge.key' => 'test-key',
+            'services.auth.password_registration_enabled' => true]);
         Http::preventStrayRequests();
         Http::fake(['*/pricing' => Http::response($this->pricing)]);
         $this->user = User::factory()->create();
@@ -94,6 +97,35 @@ class GenerationTest extends TestCase
     {
         $this->actingAs($this->user)->postJson('/generations', $this->input(['size' => 'bad', 'quality' => 'bad', 'reference_images' => ['file:///etc/passwd'], 'prompt' => '']))->assertUnprocessable()->assertJsonValidationErrors(['size', 'quality', 'prompt', 'reference_images.0']);
         $this->postJson('/quote', $this->input(['prompt' => str_repeat('x', 4001)]))->assertUnprocessable();
+    }
+
+    public function test_reference_urls_must_be_public_https_approved_hosts(): void
+    {
+        $this->actingAs($this->user);
+        foreach (['http://169.254.169.254/latest/meta-data/', 'https://127.0.0.1/private', 'https://images.unsplash.com.evil.test/image.png', 'https://images.unsplash.com:8443/image.png', 'https://user:pass@images.unsplash.com/image.png', 'https://images.unsplash.com/image.png#fragment'] as $url) {
+            $this->postJson('/generations', $this->input(['reference_images' => [$url]]))
+                ->assertUnprocessable()->assertJsonValidationErrors('reference_images.0');
+        }
+        $this->assertDatabaseCount('generations', 0);
+        Http::assertNothingSent();
+
+        $this->postJson('/quote', $this->input(['reference_images' => ['https://images.unsplash.com/photo-example']]))
+            ->assertOk()->assertJsonStructure(['estimate', 'minimum', 'maximum']);
+    }
+
+    public function test_shared_demo_budget_blocks_a_second_account_before_queueing(): void
+    {
+        $input = $this->input(['quality' => 'high']);
+        $maximum = app(Quote::class)->calculate($input, $this->pricing)['maximum'];
+        config(['services.pixelforge.daily_budget' => Money::format($maximum + intdiv($maximum, 2))]);
+
+        $this->actingAs($this->user)->post('/generations', $input)->assertRedirect('/studio');
+        $second = User::factory()->create();
+        $this->actingAs($second)->post('/generations', $this->input(['quality' => 'high']))
+            ->assertSessionHasErrors('prompt');
+
+        $this->assertDatabaseCount('generations', 1);
+        Queue::assertPushed(SubmitGeneration::class, 1);
     }
 
     public function test_insufficient_balance_does_not_submit(): void
@@ -278,6 +310,18 @@ class GenerationTest extends TestCase
         $this->assertGuest();
         $this->post('/login', ['email' => 'new@example.test', 'password' => 'wrong'])->assertSessionHasErrors('email');
         $this->post('/login', ['email' => 'new@example.test', 'password' => 'safe-test-password'])->assertRedirect('/studio');
+    }
+
+    public function test_login_attempts_for_one_email_are_limited_across_source_addresses(): void
+    {
+        for ($i = 1; $i <= 20; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.'.$i])
+                ->postJson('/login', ['email' => 'victim@example.test', 'password' => 'wrong-password'])
+                ->assertUnprocessable();
+        }
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.21'])
+            ->postJson('/login', ['email' => 'VICTIM@example.test', 'password' => 'wrong-password'])
+            ->assertTooManyRequests();
     }
 
     public function test_signed_malformed_json_is_rejected_without_a_receipt(): void

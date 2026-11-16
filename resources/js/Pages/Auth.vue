@@ -4,7 +4,7 @@ import { ref } from 'vue';
 import googleLogo from '../../images/google-signin.png';
 import appleLogo from '../../images/apple-signin.png';
 import { Head, useForm } from '@inertiajs/vue3';
-defineProps({ demoEnabled: Boolean, providers: { type: Array, default: () => [] }, errors: { type: Object, default: () => ({}) } });
+defineProps({ demoEnabled: Boolean, registrationEnabled: Boolean, providers: { type: Array, default: () => [] }, errors: { type: Object, default: () => ({}) } });
 const register = ref(false);
 const form = useForm({ name: '', email: '', password: '', password_confirmation: '' });
 const demo = useForm({});
@@ -34,7 +34,7 @@ function submit() { form.post(register.value ? '/register' : '/login', { onFinis
           <div v-if="Object.keys(form.errors).length" class="error-box" role="alert"><p v-for="(error, key) in form.errors" :key="key">{{ error }}</p></div>
           <button class="primary" :disabled="form.processing">{{ form.processing ? 'One moment…' : register ? 'Create my workspace' : 'Sign in' }} <span>→</span></button>
         </form>
-        <p class="auth-switch">{{ register ? 'Already have an account?' : 'New around here?' }} <button @click="register = !register; form.clearErrors()">{{ register ? 'Sign in' : 'Create an account' }}</button></p>
+        <p v-if="registrationEnabled" class="auth-switch">{{ register ? 'Already have an account?' : 'New around here?' }} <button @click="register = !register; form.clearErrors()">{{ register ? 'Sign in' : 'Create an account' }}</button></p>
         <template v-if="demoEnabled"><div class="or"><span>or take a look around</span></div><button class="secondary full" :disabled="demo.processing" @click="demo.post('/demo')">Explore the demo <span>↗</span></button><p class="fine center">Shared demo workspace. Use sample prompts only.<br>All credits and generations are simulated.</p></template>
         <p class="fine center"><a href="/privacy">Privacy and data use</a></p>
       </div>

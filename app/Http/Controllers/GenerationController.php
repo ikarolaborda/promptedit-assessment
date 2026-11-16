@@ -6,6 +6,7 @@ use App\Jobs\GenerateFoundryImage;
 use App\Jobs\SubmitGeneration;
 use App\Models\Generation;
 use App\Models\User;
+use App\Services\DemoBudget;
 use App\Services\FoundryImages;
 use App\Services\Money;
 use App\Services\Pixelforge;
@@ -48,7 +49,17 @@ class GenerationController extends Controller
             'size' => ['required', Rule::in(['1024x1024', '1536x1024', '1024x1536'])],
             'quality' => ['required', Rule::in(['low', 'medium', 'high'])],
             'reference_images' => ['present', 'array', 'max:4'],
-            'reference_images.*' => ['required', 'string', 'url:http,https', 'max:2048'],
+            'reference_images.*' => ['required', 'string', 'url:http,https', 'max:2048', function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+                if ($this->mode($request) === 'real') {
+                    return;
+                }
+                $parts = is_string($value) ? parse_url($value) : false;
+                $host = is_array($parts) ? strtolower($parts['host'] ?? '') : '';
+                if (! is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || ! in_array($host, config('services.pixelforge.reference_hosts'), true)
+                    || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || isset($parts['fragment'])) {
+                    $fail('Use a public HTTPS image from an approved image host.');
+                }
+            }],
             ...($withId ? ['client_request_id' => ['required', 'uuid']] : []),
         ]);
         if ($this->mode($request) === 'real' && $data['reference_images']) {
@@ -135,6 +146,9 @@ class GenerationController extends Controller
             $balanceColumn = $wallet === 'demo' ? 'balance_pico' : ($wallet === 'live' ? 'paid_balance_pico' : 'test_balance_pico');
             if ($amounts['maximum'] > $user->{$balanceColumn} - $reserved) {
                 throw ValidationException::withMessages(['prompt' => 'Not enough available credits for the estimated maximum. Add credits or wait for a pending generation to finish.']);
+            }
+            if ($mode === 'demo') {
+                app(DemoBudget::class)->reserve($amounts['maximum']);
             }
             $g = Generation::create($input + [
                 'user_id' => $request->user()->id, 'client_request_id' => $requestId, 'request_hash' => $hash,

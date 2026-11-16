@@ -19,6 +19,7 @@ RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoload
     && chmod +x deployment/start.sh
 COPY --from=frontend /app/public/build ./public/build
 COPY deployment/Caddyfile /etc/caddy/Caddyfile
+RUN frankenphp validate --config /etc/caddy/Caddyfile
 COPY deployment/supervisord.conf /etc/supervisor/conf.d/studio.conf
 COPY deployment/php.ini /usr/local/etc/php/conf.d/studio.ini
 ENV APP_ENV=production APP_DEBUG=false SERVER_NAME=:8080

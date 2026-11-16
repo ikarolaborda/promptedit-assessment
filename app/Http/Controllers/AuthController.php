@@ -15,7 +15,8 @@ class AuthController extends Controller
 {
     public function show()
     {
-        return Inertia::render('Auth', ['demoEnabled' => config('services.pixelforge.demo_enabled'), 'providers' => SocialLogin::available()]);
+        return Inertia::render('Auth', ['demoEnabled' => config('services.pixelforge.demo_enabled'), 'providers' => SocialLogin::available(),
+            'registrationEnabled' => config('services.auth.password_registration_enabled')]);
     }
 
     public function login(Request $request)
@@ -31,6 +32,7 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        abort_unless(config('services.auth.password_registration_enabled'), 404);
         $input = $request->validate([
             'name' => 'required|string|max:100', 'email' => 'required|email|max:255|unique:users',
             'password' => ['required', 'confirmed', Password::min(12)],

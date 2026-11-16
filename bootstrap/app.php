@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [HandleInertiaRequests::class]);
         $middleware->preventRequestForgery(except: ['webhooks/pixelforge', 'webhooks/stripe', 'auth/apple/callback']);
         $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '100.64.0.0/10']);
+        $middleware->trustHosts(at: fn (): array => request()->is('up')
+            ? ['.*']
+            : ['^'.preg_quote(parse_url(config('app.url'), PHP_URL_HOST), '/').'$'], subdomains: false);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

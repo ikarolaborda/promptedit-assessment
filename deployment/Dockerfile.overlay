@@ -14,7 +14,9 @@ USER root
 WORKDIR /app
 COPY . .
 COPY deployment/supervisord.conf /etc/supervisor/conf.d/studio.conf
+COPY deployment/Caddyfile /etc/caddy/Caddyfile
 RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader \
+    && frankenphp validate --config /etc/caddy/Caddyfile \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod +x deployment/start.sh
 COPY --from=frontend /app/public/build ./public/build
