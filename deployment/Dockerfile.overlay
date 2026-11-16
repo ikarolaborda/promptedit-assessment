@@ -6,5 +6,6 @@ USER root
 WORKDIR /app
 COPY . .
 RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader \
-    && chown -R www-data:www-data storage bootstrap/cache
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod +x deployment/start.sh
 USER www-data
