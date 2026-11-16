@@ -35,3 +35,11 @@ The initial deployment passed backend checks but failed the actual browser rende
 ## Scope and limitations
 
 These are executed results, not a claim of exhaustive testing. Browser acceptance was performed through native Chrome controls, including mobile emulation; it is not a committed Playwright suite, physical-device test, Safari/Firefox certification or formal accessibility audit. Registration validation and authorization rejection were exercised by live HTTP tests; the browser login used a disposable account created through HTTP. A Chrome extension message-channel warning was observed; a fresh report load after clearing the console had no messages. Pixelforge images and purchases are simulated. Provider-generated image URLs can expire, and the shared demo is intentionally visible to other reviewers.
+
+## Social sign-in validation (16 November 2026)
+
+The Google/Apple integration adds 19 feature tests (124 assertions). The complete suite passes 58 tests and 311 assertions against both SQLite and PostgreSQL 17; all eight Vue tests and the production Vite build also pass. Pint passes, Composer audit reports no advisories, and the npm production dependency audit reports zero vulnerabilities.
+
+Coverage includes configured-provider visibility, real authorization redirect construction, secure browser binding, Apple's nonce cookie and POST callback, verified identity creation, stable-subject repeat login, explicit account linking, collision rejection, shared-demo linking rejection, cancellation, expired/missing state, wrong-browser callbacks, replay prevention and logout invalidation. Provider identity results are faked in successful feature tests; these are not claims of live provider acceptance. Live provider results are recorded separately below.
+
+The prior assessment commit `02253c8` also passed GitHub Actions run `43960374945`.

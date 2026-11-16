@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [HandleInertiaRequests::class]);
-        $middleware->preventRequestForgery(except: ['webhooks/pixelforge']);
+        $middleware->preventRequestForgery(except: ['webhooks/pixelforge', 'auth/apple/callback']);
         $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '100.64.0.0/10']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

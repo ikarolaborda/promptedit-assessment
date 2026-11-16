@@ -11,6 +11,7 @@ defineProps({ section: { type: String, default: 'studio' } });
       <nav aria-label="Main navigation">
         <Link href="/studio" :class="['nav-item', { active: section === 'studio' }]"><span aria-hidden="true">▧</span> Image studio <span class="nav-arrow">↗</span></Link>
         <Link v-if="page.props.auth.user.is_admin" href="/report" :class="['nav-item', { active: section === 'report' }]"><span aria-hidden="true">▥</span> Usage & profit</Link>
+        <Link v-if="!page.props.auth.user.is_admin" href="/account" :class="['nav-item', { active: section === 'account' }]"><span aria-hidden="true">⚙</span> Account</Link>
         <Link href="/logout" method="post" as="button" class="nav-item compact-sign-out" aria-label="Sign out"><span aria-hidden="true">↪</span> Sign out</Link>
       </nav>
       <div class="sidebar-note"><span class="live-dot"></span> A little room to create<p>Powered by Pixelforge.<br>Simulated images, no real money.</p></div>

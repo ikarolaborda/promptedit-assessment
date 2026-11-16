@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\SocialLogin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -13,7 +15,7 @@ class AuthController extends Controller
 {
     public function show()
     {
-        return Inertia::render('Auth', ['demoEnabled' => config('services.pixelforge.demo_enabled')]);
+        return Inertia::render('Auth', ['demoEnabled' => config('services.pixelforge.demo_enabled'), 'providers' => SocialLogin::available()]);
     }
 
     public function login(Request $request)
@@ -50,10 +52,14 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $state = $request->session()->get('studio_oauth_state');
+        if (is_string($state)) {
+            Cache::forget('oauth:'.hash('sha256', $state));
+        }
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return redirect('/login')->withoutCookie('studio_oauth_binding')->withoutCookie('socialite_apple_nonce');
     }
 }
