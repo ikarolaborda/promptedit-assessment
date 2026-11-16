@@ -1,5 +1,8 @@
 <script setup>
 import { ref } from 'vue';
+// Provider artwork: developers.google.com/identity/branding-guidelines and appleid.cdn-apple.com/appleid/button/logo.
+import googleLogo from '../../images/google-signin.png';
+import appleLogo from '../../images/apple-signin.png';
 import { Head, useForm } from '@inertiajs/vue3';
 defineProps({ demoEnabled: Boolean, providers: { type: Array, default: () => [] }, errors: { type: Object, default: () => ({}) } });
 const register = ref(false);
@@ -20,7 +23,7 @@ function submit() { form.post(register.value ? '/register' : '/login', { onFinis
       <div class="auth-card"><span class="eyebrow">WELCOME TO YOUR WORKSPACE</span><h2>{{ register ? 'Make yourself at home.' : 'Good to see you.' }}</h2><p class="muted">{{ register ? 'Create an account with $5 in free demo credits.' : 'Sign in to pick up where your imagination left off.' }}</p>
         <div v-if="errors.oauth" class="error-box" role="alert">{{ errors.oauth }}</div>
         <div v-if="providers.length" class="social-buttons">
-          <a v-for="provider in providers" :key="provider" :href="`/auth/${provider}/redirect`" :class="['social-button', provider]">Sign in with {{ provider === 'google' ? 'Google' : 'Apple' }}</a>
+          <a v-for="provider in providers" :key="provider" :href="`/auth/${provider}/redirect`" :class="['social-button', provider]"><span class="social-logo" aria-hidden="true"><img :src="provider === 'google' ? googleLogo : appleLogo" alt="" /></span><span>Sign in with {{ provider === 'google' ? 'Google' : 'Apple' }}</span></a>
           <p class="fine center">or use your email and password</p>
         </div>
         <form @submit.prevent="submit" class="auth-form">
