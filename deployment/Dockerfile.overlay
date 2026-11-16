@@ -1,6 +1,14 @@
 # Optional fast rebuild using this project's own previously built runtime.
 # The full Dockerfile remains canonical. .dockerignore excludes credentials and local data.
 ARG BASE_IMAGE
+FROM node:24-bookworm-slim AS frontend
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --ignore-scripts
+COPY resources ./resources
+COPY vite.config.js ./
+RUN npm run build
+
 FROM ${BASE_IMAGE}
 USER root
 WORKDIR /app
@@ -8,4 +16,5 @@ COPY . .
 RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod +x deployment/start.sh
+COPY --from=frontend /app/public/build ./public/build
 USER www-data

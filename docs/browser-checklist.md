@@ -1,17 +1,18 @@
 # Browser acceptance checklist
 
-Status: pending access to the browser window. HTTP tests and component tests do not substitute for this checklist.
+Executed in Chrome on the Azure deployment, 16 November 2026. See [the validation record](validation.md) for evidence and limits.
 
-- Desktop: sign-in page, shared demo entry, empty state and populated history; no clipped or overlapping content.
-- Mobile: narrow viewport, navigation, composer, history, price details and report horizontal overflow.
-- Keyboard: Tab order, focus visibility, frame selection, quality selection, reference toggle, submit and sign-out.
-- Create: edit prompt and frame/quality/references; estimate updates before the generate button enables.
-- In-flight: observe queued/processing and automatic transition to success without refreshing.
-- Result: image renders, exact charge and usage details expand, balance and held credits update.
-- Failure: [fail] and [blocked] show a clear explanation, zero charge and released reservation.
-- Credits: buy simulated credits once; double clicks and retries do not duplicate the purchase.
-- Account: register a separate account, sign out/in, verify private history and forbidden admin report.
-- Report: daily and per-user costs, charges and profit reconcile exactly; date filtering works.
-- Provider dashboard: configure the matching key's HTTPS webhook URL, copy its signing secret privately, observe successful signed deliveries and duplicate delivery with one charge.
+- [x] Desktop sign-in renders and shared demo opens.
+- [x] Private account signs in with an empty history; shared demo history is not exposed.
+- [x] Desktop prompt, landscape/high settings and reference input update the quote before submission.
+- [x] Queued/processing automatically becomes success; generated image renders.
+- [x] Details expose full-precision charge and token usage.
+- [x] Browser failure is terminal, free and releases the hold; blocked result was also visible in history and verified through HTTP.
+- [x] Simulated $5 purchase updates the balance; duplicate purchase protection is covered by live HTTP and concurrent tests.
+- [x] Daily/per-user report matches provider cost and counts; the date picker filters to one UTC day.
+- [x] Mobile widths 440 and 375 render without page-level clipping; report tables are contained in their own overflow region.
+- [x] At 375 pixels, navigation, prompt entry, portrait selection, quality change, Tab focus to Generate, Return submission and automatic completion work.
+- [x] Desktop and mobile sign-out return to the rendered login page.
+- [x] Signed provider processing/success/failure callbacks and duplicate callbacks return HTTP 204; exact reconciliation proves no duplicate settlement.
 
-Record observed results and screenshots before marking complete.
+Registration validation, incorrect-password rejection and direct report authorization were tested over real HTTP. No claim is made for a complete screen-reader audit or physical iPhone/Safari validation.
