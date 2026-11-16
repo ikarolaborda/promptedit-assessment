@@ -1,0 +1,10 @@
+# Optional fast rebuild using this project's own previously built runtime.
+# The full Dockerfile remains canonical. .dockerignore excludes credentials and local data.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER root
+WORKDIR /app
+COPY . .
+RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader \
+    && chown -R www-data:www-data storage bootstrap/cache
+USER www-data

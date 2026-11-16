@@ -1,0 +1,49 @@
+name: Verify
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: frame_studio_test
+          POSTGRES_USER: studio_test
+          POSTGRES_PASSWORD: local-test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U studio_test -d frame_studio_test'
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_pgsql, pdo_sqlite, pcntl, mbstring, bcmath
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: vendor/bin/pint --test
+      - run: php artisan test
+      - run: php artisan test
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: frame_studio_test
+          DB_USERNAME: studio_test
+          DB_PASSWORD: local-test-only
+          DB_SSLMODE: disable
+      - run: php scripts/verify-concurrency.php
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: frame_studio_test
+          DB_USERNAME: studio_test
+          DB_PASSWORD: local-test-only
+          DB_SSLMODE: disable
+      - run: npm ci --ignore-scripts && npm test && npm run build

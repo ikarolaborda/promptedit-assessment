@@ -1,0 +1,29 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
+import Studio from '../../resources/js/Pages/Studio.vue';
+const mocks = vi.hoisted(() => ({ post: vi.fn(), poll: vi.fn() }));
+vi.mock('@inertiajs/vue3', async () => {
+  const { reactive } = await import('vue');
+  return { Head: { template: '<span />' }, Link: { props:['href'], template:'<a :href="href"><slot /></a>' },
+    usePage: () => ({ props:{ auth:{user:{name:'Reviewer',is_admin:true}}, flash:{message:null} } }),
+    usePoll: mocks.poll,
+    useForm: data => reactive({ ...data, errors:{}, processing:false, post(url,options) { mocks.post(url,JSON.parse(JSON.stringify(data)),options); } }) };
+});
+let wrapper, fetcher;
+const props = extra => ({ history:{data:[],last_page:1,current_page:1}, stats:{total:0,active:0,spent:'0.000000000000',balance:'5.000000000000',reserved:'0.000000000000',available:'5.000000000000',...extra} });
+const quoted = {estimate:'0.081000000000',minimum:'0.069000000000',maximum:'0.095000000000'};
+const button = () => wrapper.get('button.primary');
+async function enter(prompt='A quiet room') { await wrapper.get('#prompt').setValue(prompt); await vi.advanceTimersByTimeAsync(350); await nextTick(); }
+beforeEach(() => { vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});mocks.post.mockClear();mocks.poll.mockClear();fetcher=vi.fn().mockResolvedValue({ok:true,json:async()=>quoted});vi.stubGlobal('fetch',fetcher);document.cookie='XSRF-TOKEN=test%3Dtoken'; });
+afterEach(()=>{wrapper?.unmount();vi.useRealTimers();});
+describe('studio user controls',()=>{
+  it('starts with a disabled generate button and explains empty history',()=>{wrapper=mount(Studio,{props:props()});expect(button().attributes('disabled')).toBeDefined();expect(wrapper.text()).toContain('Every collection starts with one idea');expect(mocks.poll).toHaveBeenCalledWith(4000,{only:['history','stats']});});
+  it('debounces a quote, sends the current CSRF cookie, and shows the price before enabling generation',async()=>{wrapper=mount(Studio,{props:props()});await wrapper.get('#prompt').setValue('A');await vi.advanceTimersByTimeAsync(200);await wrapper.get('#prompt').setValue('A room');await vi.advanceTimersByTimeAsync(349);expect(fetcher).not.toHaveBeenCalled();expect(button().attributes('disabled')).toBeDefined();await vi.advanceTimersByTimeAsync(1);await nextTick();expect(fetcher).toHaveBeenCalledTimes(1);expect(fetcher.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('test=token');expect(wrapper.text()).toContain('$0.081000');expect(button().attributes('disabled')).toBeUndefined();});
+  it('keeps generation disabled when the reservation exceeds available credits',async()=>{wrapper=mount(Studio,{props:props({available:'0.010000000000'})});await enter();expect(button().attributes('disabled')).toBeDefined();expect(wrapper.text()).toContain('Add demo credits');});
+  it('disables a fourth active generation',async()=>{wrapper=mount(Studio,{props:props({active:3})});await enter();expect(button().attributes('disabled')).toBeDefined();expect(wrapper.text()).toContain('Three images are in progress');});
+  it('shows a provider pricing error and allows a successful retry',async()=>{fetcher.mockResolvedValueOnce({ok:false,json:async()=>({message:'Live pricing is unavailable.'})});wrapper=mount(Studio,{props:props()});await enter();expect(wrapper.text()).toContain('Live pricing is unavailable');expect(button().attributes('disabled')).toBeDefined();await wrapper.findAll('button').find(b=>b.text()==='Retry pricing').trigger('click');await vi.advanceTimersByTimeAsync(1);await nextTick();expect(button().attributes('disabled')).toBeUndefined();});
+  it('does not accept a stale quote after the prompt changes',async()=>{let resolveOld;fetcher.mockImplementationOnce(()=>new Promise(r=>resolveOld=r));wrapper=mount(Studio,{props:props()});await enter('Old idea');await enter('New idea');resolveOld({ok:true,json:async()=>({estimate:'999',minimum:'999',maximum:'999'})});await vi.advanceTimersByTimeAsync(1);await nextTick();expect(wrapper.text()).toContain('$0.081000');expect(wrapper.text()).not.toContain('$999');});
+  it('includes selected dimensions, quality and reference URLs in the quote',async()=>{wrapper=mount(Studio,{props:props()});await wrapper.findAll('.size-option')[1].trigger('click');await wrapper.get('#quality').setValue('high');await wrapper.get('.reference-toggle').trigger('click');await wrapper.get('.reference-field textarea').setValue('https://example.com/a.png\nhttps://example.com/b.png');await enter();expect(JSON.parse(fetcher.mock.calls.at(-1)[1].body)).toMatchObject({size:'1536x1024',quality:'high',reference_images:['https://example.com/a.png','https://example.com/b.png']});});
+  it('shows failed generations as free and preserves full-precision details',async()=>{const p=props();p.history.data=[{id:'test',prompt:'failed example',size:'1024x1024',quality:'low',status:'failed',estimate:'0.000000001250',actual:'0.000000000000',created_at:'2026-11-16T10:00:00Z',image_url:null}];wrapper=mount(Studio,{props:p});expect(wrapper.text()).toContain('Not charged');await wrapper.get('.detail-button').trigger('click');expect(wrapper.text()).toContain('Exact estimate: $0.000000001250');expect(wrapper.text()).toContain('Exact charge: $0.000000000000');});
+});
