@@ -28,7 +28,7 @@ class PollGeneration implements ShouldQueue
     public function handle(Pixelforge $api, SettleGeneration $settler): void
     {
         $g = Generation::find($this->generationId);
-        if (! $g || $g->terminal() || ! $g->provider_id || $g->last_synced_at?->gt(now()->subSeconds(10))) {
+        if (! $g || $g->provider !== 'pixelforge' || $g->terminal() || ! $g->provider_id || $g->last_synced_at?->gt(now()->subSeconds(10))) {
             return;
         }
         if ($g->created_at->lt(now()->subHours(24))) {

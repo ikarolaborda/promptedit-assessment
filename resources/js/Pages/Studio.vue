@@ -2,10 +2,11 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Head, Link, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import Shell from '../Components/Shell.vue';
-const props = defineProps({ history: Object, stats: Object });
+const props = defineProps({ history: Object, stats: Object, mode: { type: String, default: 'demo' }, realEnabled: Boolean, testMode: Boolean, canBuy: Boolean });
 const page = usePage();
 const form = useForm({ prompt: '', size: '1024x1024', quality: 'medium', reference_images: [], client_request_id: crypto.randomUUID() });
 const credit = useForm({ request_id: crypto.randomUUID() });
+const real = computed(() => props.mode === 'real');
 const references = ref('');
 const showReferences = ref(false);
 const quote = ref(null), quoteError = ref(''), quoting = ref(false);
@@ -29,23 +30,26 @@ async function loadQuote() {
   controller = new AbortController(); const currentController = controller;
   try {
     const token = document.cookie.split('; ').find(x => x.startsWith('XSRF-TOKEN='))?.slice(11);
-    const response = await fetch('/quote', { method:'POST', credentials:'same-origin', signal:currentController.signal, headers: { 'Content-Type':'application/json', Accept:'application/json', 'X-XSRF-TOKEN': decodeURIComponent(token || '') }, body:JSON.stringify({ prompt:form.prompt, size:form.size, quality:form.quality, reference_images:form.reference_images }) });
+    const response = await fetch('/quote', { method:'POST', credentials:'same-origin', signal:currentController.signal, headers: { 'Content-Type':'application/json', Accept:'application/json', 'X-XSRF-TOKEN': decodeURIComponent(token || '') }, body:JSON.stringify({ prompt:form.prompt, size:form.size, quality:form.quality, reference_images:form.reference_images, mode:props.mode }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.errors ? Object.values(data.errors).flat().join(' ') : data.message || 'Pricing is unavailable. Please try again.');
     if (currentController === controller) quote.value = data;
   } catch (error) { if (error.name !== 'AbortError' && currentController === controller) quoteError.value = error.message; }
   finally { if (currentController === controller) quoting.value = false; }
 }
-function generate() { if (canGenerate.value) form.post('/generations', { preserveScroll:true, onSuccess:() => { form.client_request_id = crypto.randomUUID(); } }); }
-function addCredits() { credit.post('/credits', { preserveScroll:true, onSuccess:() => credit.request_id = crypto.randomUUID() }); }
-function sample() { form.prompt = 'A quiet coastal house at golden hour, soft film grain, warm terracotta and sage tones [succeed]'; }
+function generate() { if (canGenerate.value) form.transform(data => ({ ...data, mode:props.mode })).post('/generations', { preserveScroll:true, onSuccess:() => { form.client_request_id = crypto.randomUUID(); } }); }
+function addCredits() { credit.post(real.value ? '/billing/checkout' : '/credits', { preserveScroll:true, onSuccess:() => credit.request_id = crypto.randomUUID() }); }
+function sample() { form.prompt = 'A quiet coastal house at golden hour, soft film grain, warm terracotta and sage tones' + (real.value ? '' : ' [succeed]'); }
 onBeforeUnmount(() => { clearTimeout(timer); controller?.abort(); });
 </script>
 <template>
   <Head title="Image studio" />
-  <Shell>
-    <header class="topbar"><span>WORKSPACE <span class="slash">/</span> IMAGE STUDIO</span><span class="provider-pill"><i class="live-dot"></i> Pixelforge</span></header>
-    <div class="page-heading"><div><span class="eyebrow">A BLANK CANVAS, ENDLESS POSSIBILITIES</span><h1>What will you make today?</h1><p>Turn a small idea into something you can see.</p></div><div class="balance"><span>Available credits</span><strong>{{ display(stats.available, 4) }}</strong><button @click="addCredits" :disabled="credit.processing">+ Buy $5 demo credits</button><small>No real payment · {{ display(stats.reserved, 4) }} reserved</small></div></div>
+  <Shell :real="real">
+    <header class="topbar"><span>WORKSPACE <span class="slash">/</span> IMAGE STUDIO</span><span class="provider-pill"><i class="live-dot"></i> {{ real ? 'Real images' : 'Demo' }}</span></header>
+    <div v-if="realEnabled" class="mode-switch" aria-label="Workspace mode"><Link href="/studio?mode=real" :class="{selected:real}">Real images</Link><Link href="/studio?mode=demo" :class="{selected:!real}">Try the demo</Link></div>
+    <p v-if="testMode" class="flash" role="status">Payment test mode. Use Stripe test cards only. These credits cannot be used in the live wallet.</p>
+    <div class="page-heading"><div><span class="eyebrow">A BLANK CANVAS, ENDLESS POSSIBILITIES</span><h1>What will you make today?</h1><p>Turn a small idea into something you can see.</p></div><div class="balance"><span>{{ real ? 'Paid credits' : 'Demo credits' }}</span><strong>{{ display(stats.available, 4) }}</strong><button @click="addCredits" :disabled="credit.processing || (real && !canBuy)">{{ real ? '+ Buy $2 credits' : '+ Add $5 demo credits' }}</button><small>{{ real ? (testMode ? 'Test payment' : 'One-time purchase · USD') : 'No real payment' }} · {{ display(stats.reserved, 4) }} reserved</small></div></div>
+    <div v-if="credit.errors.payment" class="error-box" role="alert">{{ credit.errors.payment }}</div>
     <div v-if="page.props.flash.message" class="flash" role="status">{{ page.props.flash.message }}</div>
     <div class="workspace-grid">
       <section class="composer panel" aria-labelledby="composer-heading">
@@ -56,13 +60,13 @@ onBeforeUnmount(() => { clearTimeout(timer); controller?.abort(); });
           <button type="button" class="text-button sample" @click="sample">✧ Try a little inspiration</button>
           <fieldset><legend>Choose a frame</legend><div class="size-options"><button v-for="size in [{v:'1024x1024',label:'Square',ratio:'1:1',icon:'square'},{v:'1536x1024',label:'Landscape',ratio:'3:2',icon:'landscape'},{v:'1024x1536',label:'Portrait',ratio:'2:3',icon:'portrait'}]" :key="size.v" type="button" :aria-pressed="form.size===size.v" :class="['size-option', { selected: form.size===size.v }]" @click="form.size=size.v"><span :class="['shape',size.icon]"></span><strong>{{ size.label }}</strong><small>{{ size.ratio }}</small></button></div></fieldset>
           <label for="quality">Detail level<select id="quality" v-model="form.quality"><option value="low">Draft — quick ideas, lower cost</option><option value="medium">Balanced — a little more detail</option><option value="high">High — the finest finish</option></select></label>
-          <button class="reference-toggle" type="button" :aria-expanded="showReferences" @click="showReferences=!showReferences"><span>+ Add reference images</span><span>{{ form.reference_images.length ? form.reference_images.length + ' / 4' : 'Optional' }}</span></button>
+          <button v-if="!real" class="reference-toggle" type="button" :aria-expanded="showReferences" @click="showReferences=!showReferences"><span>+ Add reference images</span><span>{{ form.reference_images.length ? form.reference_images.length + ' / 4' : 'Optional' }}</span></button>
           <label v-if="showReferences" class="reference-field">Image URLs<textarea v-model="references" rows="3" placeholder="https://example.com/image.png&#10;One URL per line, up to four." /><span class="fine">References add input-image tokens to the price.</span></label>
-          <div class="quote-box" aria-live="polite"><div class="quote-main"><span>Estimated cost</span><strong>{{ quoting ? 'Calculating…' : quote ? display(quote.estimate) : '—' }}</strong></div><template v-if="quote"><div class="quote-range">Expected range {{ display(quote.minimum) }} – {{ display(quote.maximum) }}</div><p>Includes a 25% markup. We reserve the estimated maximum; only the final token usage is charged. Failed generations are free.</p></template><p v-else>{{ quoteError || 'Add a prompt to see live pricing before you create.' }}</p><button v-if="quoteError" type="button" class="text-button" @click="loadQuote">Retry pricing</button></div>
-          <p v-if="insufficient" class="error-text">Add demo credits to cover the estimated maximum.</p>
+          <div class="quote-box" aria-live="polite"><div class="quote-main"><span>Estimated cost</span><strong>{{ quoting ? 'Calculating…' : quote ? display(quote.estimate) : '—' }}</strong></div><template v-if="quote"><div class="quote-range">Expected range {{ display(quote.minimum) }} – {{ display(quote.maximum) }}</div><p>Includes a 25% markup. We reserve the estimated maximum; only the final token usage is charged. Failed generations are free.<span v-if="real"> Your charge never exceeds the quoted maximum.</span></p></template><p v-else>{{ quoteError || 'Add a prompt to see live pricing before you create.' }}</p><button v-if="quoteError" type="button" class="text-button" @click="loadQuote">Retry pricing</button></div>
+          <p v-if="insufficient" class="error-text">{{ real ? 'Buy credits' : 'Add demo credits' }} to cover the estimated maximum.</p>
           <p v-if="stats.active >= 3" class="error-text">Three images are in progress. Your next canvas will be ready soon.</p>
           <div v-if="Object.keys(form.errors).length" class="error-box" role="alert"><p v-for="(error,key) in form.errors" :key="key">{{ error }}</p></div>
-          <button class="primary full" :disabled="!canGenerate">{{ form.processing ? 'Joining the queue…' : 'Generate image' }} <span>↗</span></button><p class="fine center">A simulated creative workspace. No real charges.</p>
+          <button class="primary full" :disabled="!canGenerate">{{ form.processing ? 'Joining the queue…' : 'Generate image' }} <span>↗</span></button><p class="fine center">{{ real ? 'Paid credits decrease only after an image is generated successfully.' : 'A simulated creative workspace. No real charges.' }}</p>
         </form>
       </section>
       <section class="history" aria-labelledby="history-heading">

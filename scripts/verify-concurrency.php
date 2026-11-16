@@ -1,11 +1,14 @@
 <?php
 
 use App\Http\Controllers\GenerationController;
+use App\Models\CreditOrder;
 use App\Models\Generation;
 use App\Models\User;
+use App\Services\FoundryImages;
 use App\Services\Pixelforge;
 use App\Services\Quote;
 use App\Services\SettleGeneration;
+use App\Services\StripeBilling;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -97,4 +100,23 @@ $requestId = (string) Str::uuid();
 $user->refresh()->forceFill(['balance_pico' => 5000000000000])->save();
 $r = race(array_fill(0, 3, fn () => submit($user->id, $requestId)));
 check(count(array_filter($r, fn ($x) => $x['ok'] ?? false)) === 3 && Generation::count() === 2 && DB::table('jobs')->count() === 2, 'concurrent identical submissions create one record and one job');
+config(['services.foundry.enabled' => true, 'services.stripe.livemode' => true]);
+$paidUser = User::factory()->create(['paid_balance_pico' => 15000000000]);
+$submitPaid = function () use ($paidUser) {
+    $r = Request::create('/generations', 'POST', ['mode' => 'real', 'prompt' => 'A tree', 'size' => '1024x1024', 'quality' => 'low', 'reference_images' => [], 'client_request_id' => (string) Str::uuid()]);
+    $r->setUserResolver(fn () => User::findOrFail($paidUser->id));
+    app(GenerationController::class)->store($r, app(Pixelforge::class), app(Quote::class));
+
+    return ['ok' => true];
+};
+$r = race([$submitPaid, $submitPaid]);
+check(count(array_filter($r, fn ($x) => $x['ok'] ?? false)) === 1 && Generation::where('user_id', $paidUser->id)->count() === 1, 'concurrent paid reservations cannot overspend');
+$paidGeneration = Generation::where('user_id', $paidUser->id)->firstOrFail();
+$image = ['data' => [['b64_json' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=']], 'usage' => ['input_tokens' => 10, 'input_tokens_details' => ['text_tokens' => 10, 'image_tokens' => 0], 'output_tokens' => 600]];
+$r = race(array_fill(0, 3, fn () => [app(FoundryImages::class)->settle($paidGeneration, $image), 'ok' => true]));
+check(count(array_filter($r, fn ($x) => $x['ok'] ?? false)) === 3 && DB::table('charges')->where('generation_id', $paidGeneration->id)->count() === 1 && $paidUser->fresh()->paid_balance_pico === 8975000000, 'concurrent paid image settlement debits exactly once');
+$order = CreditOrder::create(['id' => (string) Str::uuid(), 'user_id' => $paidUser->id, 'amount_cents' => 200, 'currency' => 'usd', 'price_id' => 'price_race', 'livemode' => true, 'stripe_session_id' => 'cs_race']);
+$session = ['id' => 'cs_race', 'client_reference_id' => $order->id, 'metadata' => ['app' => 'frame-studio', 'order_id' => $order->id], 'livemode' => true, 'amount_total' => 200, 'currency' => 'usd', 'payment_status' => 'paid', 'payment_intent' => ['id' => 'pi_race', 'latest_charge' => ['amount_refunded' => 0]], 'line_items' => ['data' => [['price' => ['id' => 'price_race'], 'quantity' => 1]]]];
+$r = race(array_fill(0, 4, fn () => [app(StripeBilling::class)->fulfill($session), 'ok' => true]));
+check(count(array_filter($r, fn ($x) => $x['ok'] ?? false)) === 4 && $paidUser->fresh()->paid_balance_pico === 2008975000000, 'concurrent payment callbacks add credits exactly once');
 echo "PostgreSQL process-concurrency checks passed.\n";

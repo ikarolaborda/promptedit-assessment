@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 const page = usePage();
-defineProps({ section: { type: String, default: 'studio' } });
+defineProps({ real: Boolean, section: { type: String, default: 'studio' } });
 </script>
 <template>
   <div class="app-shell">
@@ -14,7 +14,7 @@ defineProps({ section: { type: String, default: 'studio' } });
         <Link v-if="!page.props.auth.user.is_admin" href="/account" :class="['nav-item', { active: section === 'account' }]"><span aria-hidden="true">⚙</span> Account</Link>
         <Link href="/logout" method="post" as="button" class="nav-item compact-sign-out" aria-label="Sign out"><span aria-hidden="true">↪</span> Sign out</Link>
       </nav>
-      <div class="sidebar-note"><span class="live-dot"></span> A little room to create<p>Powered by Pixelforge.<br>Simulated images, no real money.</p></div>
+      <div class="sidebar-note"><span class="live-dot"></span> A little room to create<p><template v-if="real">Real images, clear prices.<br>Pay only for successful results.</template><template v-else>Powered by Pixelforge.<br>Simulated images, no real money.</template></p></div>
       <div class="account"><div class="avatar">{{ page.props.auth.user.name.slice(0,1) }}</div><div><strong>{{ page.props.auth.user.name }}</strong><span>Creative workspace</span></div><Link href="/logout" method="post" as="button" class="sign-out" aria-label="Sign out">↪</Link></div>
     </aside>
     <main class="main"><slot /></main>

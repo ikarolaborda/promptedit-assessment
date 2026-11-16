@@ -13,6 +13,7 @@ FROM ${BASE_IMAGE}
 USER root
 WORKDIR /app
 COPY . .
+COPY deployment/supervisord.conf /etc/supervisor/conf.d/studio.conf
 RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod +x deployment/start.sh

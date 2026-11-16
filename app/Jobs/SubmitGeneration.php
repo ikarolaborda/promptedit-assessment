@@ -28,7 +28,7 @@ class SubmitGeneration implements ShouldQueue
     public function handle(Pixelforge $api, SettleGeneration $settler): void
     {
         $g = Generation::find($this->generationId);
-        if (! $g || $g->terminal() || $g->provider_id || $g->needs_attention || $g->next_attempt_at?->isFuture()) {
+        if (! $g || $g->provider !== 'pixelforge' || $g->terminal() || $g->provider_id || $g->needs_attention || $g->next_attempt_at?->isFuture()) {
             return;
         }
         $g->increment('submit_attempts');

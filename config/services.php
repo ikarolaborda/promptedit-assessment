@@ -1,6 +1,23 @@
 <?php
 
 return [
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET_KEY', ''),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET', ''),
+        'price_id' => env('STRIPE_CREDIT_PRICE_ID', ''),
+        'livemode' => env('STRIPE_LIVE_MODE', false),
+        'test_email' => env('STRIPE_TEST_EMAIL', ''),
+    ],
+    'foundry' => [
+        'enabled' => env('FOUNDRY_IMAGES_ENABLED', false),
+        'endpoint' => env('FOUNDRY_ENDPOINT', ''),
+        'key' => env('FOUNDRY_API_KEY', ''),
+        'deployment' => env('FOUNDRY_IMAGE_DEPLOYMENT', 'frame-studio-image-mini'),
+        'daily_budget' => env('FOUNDRY_DAILY_BUDGET_USD', '5.00'),
+        'text_rate' => env('FOUNDRY_TEXT_RATE_USD', '2'),
+        'image_rate' => env('FOUNDRY_IMAGE_RATE_USD', '2.5'),
+        'output_rate' => env('FOUNDRY_OUTPUT_RATE_USD', '8'),
+    ],
 
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID', ''),

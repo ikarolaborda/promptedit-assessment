@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Charge;
+use App\Models\Generation;
 use App\Services\Money;
 use App\Services\Pixelforge;
 use Carbon\CarbonImmutable;
@@ -19,7 +20,7 @@ class ReportController extends Controller
         $from = CarbonImmutable::parse($dates['from'] ?? now()->subDays(6)->toDateString(), 'UTC')->startOfDay();
         $to = CarbonImmutable::parse($dates['to'] ?? now()->toDateString(), 'UTC')->startOfDay();
         abort_if($from->gt($to) || $from->diffInDays($to) > 91, 422, 'Choose up to 92 UTC days.');
-        $charges = Charge::where('completed_at', '>=', $from)->where('completed_at', '<', $to->addDay())->get();
+        $charges = Charge::whereIn('generation_id', Generation::where('provider', 'pixelforge')->select('id'))->where('completed_at', '>=', $from)->where('completed_at', '<', $to->addDay())->get();
         $remote = [];
         $providerError = null;
         try {

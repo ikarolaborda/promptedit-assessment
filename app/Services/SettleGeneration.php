@@ -28,6 +28,9 @@ class SettleGeneration
             $owner = Generation::whereKey($localId)->value('user_id');
             $user = User::whereKey($owner)->lockForUpdate()->firstOrFail();
             $g = Generation::query()->lockForUpdate()->findOrFail($localId);
+            if ($g->provider !== 'pixelforge') {
+                throw new RuntimeException('Wrong generation provider.');
+            }
             if ($g->provider_id && $g->provider_id !== $remote['id']) {
                 throw new RuntimeException('Provider identifier mismatch.');
             }

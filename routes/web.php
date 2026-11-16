@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\GenerationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SocialAuthController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -25,6 +27,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/demo', [AuthController::class, 'demo'])->middleware('throttle:demo');
 });
 Route::middleware('auth')->group(function () {
+    Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('throttle:5,1');
+    Route::get('/billing/success', [BillingController::class, 'success'])->middleware('throttle:20,1');
+    Route::get('/generations/{generation}/image', [GenerationController::class, 'image']);
     Route::get('/account', [SocialAuthController::class, 'account']);
     Route::post('/account/connect/{provider}', [SocialAuthController::class, 'connect'])->whereIn('provider', ['google', 'apple'])->middleware('throttle:oauth');
     Route::get('/studio', [GenerationController::class, 'index'])->name('studio');
@@ -39,4 +44,8 @@ Route::post('/webhooks/pixelforge', WebhookController::class)->withoutMiddleware
     ShareErrorsFromSession::class,
     PreventRequestForgery::class,
     HandleInertiaRequests::class,
+]);
+
+Route::post('/webhooks/stripe', StripeWebhookController::class)->withoutMiddleware([
+    StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class, HandleInertiaRequests::class,
 ]);

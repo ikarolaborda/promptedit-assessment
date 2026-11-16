@@ -6,11 +6,13 @@ import { Head } from '@inertiajs/vue3';
     <Head title="Privacy and data use" />
     <a href="/login" class="text-button">← Back to sign in</a>
     <h1>Privacy and data use</h1>
-    <p>Frame Studio is a software assessment operated by Ikaro Laborda. Images and credit purchases are simulated. Please use sample prompts only.</p>
+    <p>Frame Studio is a software assessment operated by Ikaro Laborda. The demo uses simulated images and credits. Real image generation and purchases, when available, are clearly labelled separately. Please avoid confidential or sensitive prompts.</p>
     <h2>Account information</h2>
     <p>Email registration stores your name, email and a hashed password. Google and Apple sign-in request your basic profile and email; we store a provider identifier to recognize your account. We do not retain provider access or refresh tokens or request access to your mail, files or contacts.</p>
     <h2>Your workspace</h2>
-    <p>Your private workspace stores prompts, reference URLs, generation status and simulated credit records. Generation requests are sent to Pixelforge to produce simulated results. The shared demo is public to other reviewers; anything entered there can be seen by them. Usage reports show user identifiers rather than names or email addresses.</p>
+    <p>Your private workspace stores prompts, reference URLs, generation status and credit records. Demo generation requests are sent to Pixelforge to produce simulated results. Real image requests send your prompt and a pseudonymous user identifier to Microsoft Azure AI Foundry. Generated images are stored in your private workspace. The shared demo is public to other reviewers; anything entered there can be seen by them. Usage reports show user identifiers rather than names or email addresses.</p>
+    <h2>Payments and image credits</h2>
+    <p>When purchases are available, a one-time $2 USD payment buys $2 of image credits through Stripe Checkout. Stripe handles card details; this application stores payment identifiers and credit records, never your full card number. Test payments and demo credits cannot fund the live wallet. Successful images deduct the provider token cost plus 25%, capped at the maximum shown before generation. Declined requests are free. Requests awaiting provider confirmation reserve credits until resolved.</p>
     <h2>Cookies and storage</h2>
     <p>Essential cookies maintain your session, prevent forged requests and verify provider sign-in callbacks. Short-lived login cookies expire after ten minutes. Data is stored in the assessment database hosted on Microsoft Azure in North Europe. The application does not add advertising or analytics trackers.</p>
     <h2>Contact and removal</h2>
