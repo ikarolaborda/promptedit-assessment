@@ -43,3 +43,13 @@ The Google/Apple integration adds 19 feature tests (124 assertions). The complet
 Coverage includes configured-provider visibility, real authorization redirect construction, secure browser binding, Apple's nonce cookie and POST callback, verified identity creation, stable-subject repeat login, explicit account linking, collision rejection, shared-demo linking rejection, cancellation, expired/missing state, wrong-browser callbacks, replay prevention and logout invalidation. Provider identity results are faked in successful feature tests; these are not claims of live provider acceptance. Live provider results are recorded separately below.
 
 The prior assessment commit `02253c8` also passed GitHub Actions run `43960374945`.
+
+Live Google verification: Google Auth Platform reports an External app in production. On Azure image `frame-studio:20261116-v7`, ready revision `frame-studio-assessment--0000005`, `/login` and `/privacy` return HTTP 200. Chrome followed **Sign in with Google**, selected the authorized Aerolambda account, and returned to `/studio` with the user's name, $5 simulated credits, no images and no report/admin navigation. **Account** displays **Google Connected**. This verifies the real Google code exchange and application session, not only redirect construction.
+
+OAuth source commit `1829e63` passed GitHub Actions run `43963227125`. Apple website registration is complete. The dedicated key is restricted to Sign in with Apple for Frame Studio and stored in Azure runtime secrets.
+
+Chrome also verified Google sign-out and repeat sign-in: the same named workspace still showed $5.0000, zero images and no additional starting-credit grant.
+
+On ready revision `frame-studio-assessment--0000006`, both providers are enabled. Chrome used **Account → Connect Apple**, completed Apple consent, and returned to Account with **Apple sign-in connected** and both providers marked **Connected**. Live HTTP checks also verified each authorization redirect and successful handling of cancelled Google and Apple callbacks, including Apple's cross-site POST route.
+
+Final browser check: after signing out, **Sign in with Apple** completed a fresh Apple authorization and returned to the same named workspace with $5.0000, zero images and both Google and Apple still connected. No extra starting-credit grant appeared. Both real provider code exchanges, normal sign-out, repeat login and explicit cross-provider linking are verified. No Google or Apple setup steps remain pending.
