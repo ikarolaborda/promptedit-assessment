@@ -26,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        config(['inertia.pages.paths' => [resource_path('js/Pages')]]);
         Event::listen(function (SocialiteWasCalled $event): void {
             $event->extendSocialite('apple', Provider::class);
         });

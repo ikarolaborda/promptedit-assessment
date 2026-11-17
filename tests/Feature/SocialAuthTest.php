@@ -33,7 +33,7 @@ class SocialAuthTest extends TestCase
         ]);
     }
 
-    private function attempt(string $provider = 'google', ?int $userId = null): array
+    private function oauthAttempt(string $provider = 'google', ?int $userId = null): array
     {
         $state = str_repeat('a', 40);
         $binding = str_repeat('b', 64);
@@ -85,7 +85,7 @@ class SocialAuthTest extends TestCase
     public function test_verified_google_identity_creates_one_private_non_admin_workspace(): void
     {
         Socialite::fake('google', $this->identity());
-        $this->get('/auth/google/callback?'.http_build_query($this->attempt()))->assertRedirect('/studio');
+        $this->get('/auth/google/callback?'.http_build_query($this->oauthAttempt()))->assertRedirect('/studio');
         $this->assertAuthenticated();
         $user = Auth::user()->fresh();
         $this->assertFalse($user->is_admin);
@@ -99,21 +99,21 @@ class SocialAuthTest extends TestCase
     public function test_verified_apple_identity_can_sign_in_from_cross_site_post(): void
     {
         Socialite::fake('apple', $this->identity(['email' => 'private@privaterelay.appleid.com', 'email_verified' => 'true']));
-        $this->post('/auth/apple/callback', $this->attempt('apple'))->assertRedirect('/studio');
+        $this->post('/auth/apple/callback', $this->oauthAttempt('apple'))->assertRedirect('/studio');
         $this->assertAuthenticated();
         $this->assertDatabaseHas('social_identities', ['provider' => 'apple']);
     }
 
     public function test_missing_apple_nonce_is_rejected_before_code_exchange(): void
     {
-        $this->post('/auth/apple/callback', $this->attempt('apple'))->assertRedirect('/login')->assertSessionHasErrors('oauth');
+        $this->post('/auth/apple/callback', $this->oauthAttempt('apple'))->assertRedirect('/login')->assertSessionHasErrors('oauth');
         $this->assertGuest();
         $this->assertDatabaseCount('users', 0);
     }
 
     public function test_missing_google_session_state_is_rejected_before_code_exchange(): void
     {
-        $this->get('/auth/google/callback?'.http_build_query($this->attempt()))->assertRedirect('/login')->assertSessionHasErrors('oauth');
+        $this->get('/auth/google/callback?'.http_build_query($this->oauthAttempt()))->assertRedirect('/login')->assertSessionHasErrors('oauth');
         $this->assertGuest();
         $this->assertDatabaseCount('users', 0);
     }
@@ -123,7 +123,7 @@ class SocialAuthTest extends TestCase
         $user = User::factory()->create();
         SocialIdentity::create(['user_id' => $user->id, 'provider' => 'google', 'subject' => 'provider-subject']);
         Socialite::fake('google', $this->identity(['email' => 'changed@example.test']));
-        $this->get('/auth/google/callback?'.http_build_query($this->attempt()))->assertRedirect('/studio');
+        $this->get('/auth/google/callback?'.http_build_query($this->oauthAttempt()))->assertRedirect('/studio');
         $this->assertAuthenticatedAs($user);
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('social_identities', 1);
@@ -133,7 +133,7 @@ class SocialAuthTest extends TestCase
     {
         $user = User::factory()->create(['email' => 'member@example.test']);
         Socialite::fake('google', $this->identity());
-        $this->get('/auth/google/callback?'.http_build_query($this->attempt()))->assertRedirect('/login')->assertSessionHasErrors('oauth');
+        $this->get('/auth/google/callback?'.http_build_query($this->oauthAttempt()))->assertRedirect('/login')->assertSessionHasErrors('oauth');
         $this->assertGuest();
         $this->assertDatabaseCount('social_identities', 0);
         $this->assertSame($user->password, $user->fresh()->password);
@@ -142,7 +142,7 @@ class SocialAuthTest extends TestCase
     public function test_unverified_email_cannot_create_an_account(): void
     {
         Socialite::fake('google', $this->identity(['email_verified' => false]));
-        $this->get('/auth/google/callback?'.http_build_query($this->attempt()))->assertSessionHasErrors('oauth');
+        $this->get('/auth/google/callback?'.http_build_query($this->oauthAttempt()))->assertSessionHasErrors('oauth');
         $this->assertGuest();
         $this->assertDatabaseCount('users', 0);
     }
@@ -150,7 +150,7 @@ class SocialAuthTest extends TestCase
     public function test_callback_from_another_browser_cannot_consume_the_attempt(): void
     {
         Socialite::fake('google', fn () => $this->fail('Provider must not be called for an invalid browser binding.'));
-        $query = $this->attempt();
+        $query = $this->oauthAttempt();
         $this->withCookie('studio_oauth_binding', 'wrong-browser');
         $this->get('/auth/google/callback?'.http_build_query($query))->assertSessionHasErrors('oauth');
         $this->assertTrue(Cache::has('oauth:'.hash('sha256', $query['state'])));
@@ -160,7 +160,7 @@ class SocialAuthTest extends TestCase
     public function test_expired_state_is_rejected(): void
     {
         Socialite::fake('google', fn () => $this->fail('Provider must not be called for expired state.'));
-        $query = $this->attempt();
+        $query = $this->oauthAttempt();
         $this->travel(11)->minutes();
         $this->get('/auth/google/callback?'.http_build_query($query))->assertSessionHasErrors('oauth');
         $this->assertGuest();
@@ -169,7 +169,7 @@ class SocialAuthTest extends TestCase
     public function test_callback_replay_cannot_create_a_second_session_or_credit_grant(): void
     {
         Socialite::fake('google', $this->identity());
-        $query = $this->attempt();
+        $query = $this->oauthAttempt();
         $this->get('/auth/google/callback?'.http_build_query($query))->assertRedirect('/studio');
         Auth::logout();
         $this->get('/auth/google/callback?'.http_build_query($query))->assertRedirect('/login')->assertSessionHasErrors('oauth');
@@ -180,7 +180,7 @@ class SocialAuthTest extends TestCase
 
     public function test_cancelled_consent_returns_a_friendly_message(): void
     {
-        $query = $this->attempt();
+        $query = $this->oauthAttempt();
         $query['error'] = 'access_denied';
         $this->get('/auth/google/callback?'.http_build_query($query))->assertRedirect('/login')->assertSessionHasErrors('oauth');
         $this->assertGuest();
@@ -190,7 +190,7 @@ class SocialAuthTest extends TestCase
     {
         $user = User::factory()->create();
         Socialite::fake('apple', $this->identity());
-        $this->post('/auth/apple/callback', $this->attempt('apple', $user->id))->assertRedirect('/account');
+        $this->post('/auth/apple/callback', $this->oauthAttempt('apple', $user->id))->assertRedirect('/account');
         $this->assertAuthenticatedAs($user);
         $this->assertDatabaseHas('social_identities', ['user_id' => $user->id, 'provider' => 'apple']);
         $this->assertDatabaseCount('users', 1);
@@ -202,7 +202,7 @@ class SocialAuthTest extends TestCase
         $other = User::factory()->create();
         SocialIdentity::create(['user_id' => $owner->id, 'provider' => 'apple', 'subject' => 'provider-subject']);
         Socialite::fake('apple', $this->identity());
-        $this->post('/auth/apple/callback', $this->attempt('apple', $other->id))->assertRedirect('/account')->assertSessionHasErrors('oauth');
+        $this->post('/auth/apple/callback', $this->oauthAttempt('apple', $other->id))->assertRedirect('/account')->assertSessionHasErrors('oauth');
         $this->assertDatabaseCount('social_identities', 1);
         $this->assertGuest();
     }

@@ -44,6 +44,7 @@ class RoutingTest extends TestCase
 
     public function test_production_rejects_other_hosts_but_allows_internal_health_probe(): void
     {
+        $this->withoutVite();
         $this->app->detectEnvironment(fn () => 'production');
         config(['app.url' => 'https://studio.example.test']);
 
